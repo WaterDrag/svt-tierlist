@@ -80,6 +80,12 @@ function tileEl(id, inTray) {
     commit();
   });
   el.append(title, x);
+  if (item.site) {
+    const site = document.createElement('span');
+    site.className = 'tile-site';
+    site.textContent = item.site;
+    el.append(site);
+  }
   return el;
 }
 
@@ -236,9 +242,9 @@ function onRemoteState(raw) {
 
 function applyPendingFavs() {
   if (!state || !pendingFavs) return;
-  const { items, ts } = pendingFavs;
+  const { items, skItems, ts } = pendingFavs;
   pendingFavs = null;
-  const merged = mergeFavorites(state, items, ts);
+  const merged = mergeFavorites(state, items, ts, skItems);
   const novejsi = (Number(ts) || 0) > state.favsTs;
   state = merged.state;
   if (merged.changed) commit();
@@ -252,8 +258,10 @@ window.addEventListener('message', e => {
   const d = e.data;
   if (!d || d.__svtTierFavs !== true) return;
   extensionSeen = true;
-  if (Array.isArray(d.items) && d.items.length) {
-    pendingFavs = { items: d.items, ts: d.ts };
+  const items = Array.isArray(d.items) ? d.items : [];
+  const skItems = Array.isArray(d.skItems) ? d.skItems : [];
+  if (items.length || skItems.length) {
+    pendingFavs = { items, skItems, ts: d.ts };
     applyPendingFavs();
   }
   favStatus();

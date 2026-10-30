@@ -66,24 +66,45 @@ export function unranked(state) {
     .filter(id => state.items[id] && !placed.has(id) && !hidden.has(id));
 }
 
-export function mergeFavorites(state, favItems, ts) {
+export function mergeFavorites(state, favItems, ts, skItems = []) {
   const SITE = 'https://svetserialu.io';
+  const SK_SITE = 'https://sledujserialy.io';
   const next = structuredClone(state);
-  const favIds = [];
+  // Prázdný SVT seznam znamená, že ho rozšíření ještě nemá, ne že je vše odebrané.
+  const favIds = favItems.length ? [] : next.favIds.filter(id => !id.startsWith('sk-'));
+  const titles = new Set(favIds.map(id => slugify(next.items[id]?.title)));
   let changed = false;
+  const add = (id, item) => {
+    const old = next.items[id] || {};
+    const merged = {
+      title: String(item.title || old.title || id),
+      poster: item.poster || old.poster || '',
+      href: item.href || old.href || '',
+      source: 'fav',
+      ...(item.site ? { site: item.site } : {}),
+    };
+    favIds.push(id);
+    titles.add(slugify(merged.title));
+    if (JSON.stringify(old) !== JSON.stringify(merged)) changed = true;
+    next.items[id] = merged;
+  };
   for (const f of favItems) {
     const id = String((f && f.slug) || '').toLowerCase();
     if (!id || favIds.includes(id)) continue;
-    favIds.push(id);
-    const old = next.items[id] || {};
-    const item = {
-      title: String(f.title || old.title || id),
-      poster: safeUrl(f.poster, SITE) || old.poster || '',
-      href: safeUrl(f.href, SITE) || old.href || '',
-      source: 'fav',
-    };
-    if (JSON.stringify(old) !== JSON.stringify(item)) changed = true;
-    next.items[id] = item;
+    add(id, { title: f.title, poster: safeUrl(f.poster, SITE), href: safeUrl(f.href, SITE) });
+  }
+  // SK má vlastní slugy. Stejné anime na obou webech zůstane jednou, a to ze SVT.
+  for (const f of skItems) {
+    const slug = String((f && f.slug) || '').toLowerCase();
+    const id = `sk-${slug}`;
+    const title = String((f && f.title) || slug.replace(/-/g, ' '));
+    if (!slug || favIds.includes(id) || titles.has(slugify(title))) continue;
+    add(id, {
+      title,
+      poster: safeUrl(f.poster, SK_SITE),
+      href: `${SK_SITE}/cz/serial/${encodeURIComponent(slug)}`,
+      site: 'SK',
+    });
   }
   if (JSON.stringify(next.favIds) !== JSON.stringify(favIds)) changed = true;
   next.favIds = favIds;
@@ -110,7 +131,8 @@ export function toExport(state) {
 
 function itemId(item, used) {
   const m = String(item.href || '').match(/\/serial\/([^/?#]+)/i);
-  const base = m ? m[1].toLowerCase() : 'm-' + (slugify(item.title) || randomId());
+  const prefix = /sledujserialy\.io/i.test(item.href || '') ? 'sk-' : '';
+  const base = m ? prefix + decodeURIComponent(m[1]).toLowerCase() : 'm-' + (slugify(item.title) || randomId());
   let id = base;
   for (let i = 2; used.has(id); i++) id = `${base}-${i}`;
   used.add(id);
@@ -132,6 +154,7 @@ export function fromImport(state, data) {
       poster: safeUrl(raw.poster) || next.items[id]?.poster || '',
       href,
       source: next.favIds.includes(id) ? 'fav' : 'manual',
+      ...(id.startsWith('sk-') ? { site: 'SK' } : {}),
     };
     return id;
   };
