@@ -1,0 +1,63 @@
+<!doctype html>
+<html lang="cs">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Anime Tier List</title>
+  <meta name="theme-color" content="#101218">
+  <link rel="stylesheet" href="style.css">
+  <script src="https://cdn.jsdelivr.net/npm/sortablejs@1.15.6/Sortable.min.js"></script>
+</head>
+<body>
+  <header class="top">
+    <h1>Anime Tier List</h1>
+    <p id="status" class="status" role="status"></p>
+    <div id="account" class="account"></div>
+  </header>
+
+  <section id="signin" class="signin" hidden>
+    <p>Přihlas se a tvůj tier list se bude synchronizovat mezi zařízeními.</p>
+    <button id="signinBtn" class="primary" type="button">Přihlásit se přes Google</button>
+  </section>
+
+  <main id="app" hidden>
+    <div class="toolbar">
+      <button id="editTiers" type="button" aria-pressed="false">Upravit tiery</button>
+      <button id="addTier" type="button">Přidat tier</button>
+      <button id="addItem" type="button">Přidat ručně</button>
+      <label class="size">Velikost<input id="tileSize" type="range" min="44" max="130" step="2"></label>
+      <span class="spacer"></span>
+      <button id="exportJson" type="button">Export JSON</button>
+      <button id="exportPng" type="button">Export PNG</button>
+      <label class="filebtn">Import JSON<input id="importJson" type="file" accept="application/json,.json"></label>
+    </div>
+
+    <div id="tiers" class="tiers"></div>
+
+    <section class="tray-wrap">
+      <h2>Nezařazené <span id="trayCount" class="count"></span></h2>
+      <div id="tray" class="tiles tray" data-tier="tray"></div>
+      <p id="trayEmpty" class="empty" hidden>Všechno je zařazené. Nové oblíbené se objeví tady.</p>
+    </section>
+
+    <details id="hiddenWrap" class="hidden-wrap" hidden>
+      <summary>Skryté <span id="hiddenCount" class="count"></span></summary>
+      <div id="hiddenList" class="hidden-list"></div>
+    </details>
+  </main>
+
+  <dialog id="addDialog">
+    <form method="dialog" id="addForm">
+      <h2>Přidat anime ručně</h2>
+      <label>Název<input id="addTitle" required maxlength="200" autocomplete="off"></label>
+      <label>Adresa plakátu (nepovinné)<input id="addPoster" type="url" placeholder="https://…" autocomplete="off"></label>
+      <div class="dialog-actions">
+        <button value="cancel" formnovalidate>Zrušit</button>
+        <button value="ok" class="primary">Přidat</button>
+      </div>
+    </form>
+  </dialog>
+
+  <script type="module" src="app.js"></script>
+</body>
+</html>
