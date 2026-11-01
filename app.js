@@ -1,5 +1,5 @@
 import {
-  createEmpty, normalize, unranked, mergeFavorites, toExport, fromImport, newTier, manualItem,
+  createEmpty, normalize, unranked, mergeFavorites, toExport, toAiText, fromImport, newTier, manualItem,
 } from './logic.js';
 
 const firebaseConfig = {
@@ -401,6 +401,16 @@ function bindToolbar() {
     const { id, item } = manualItem(state, title, $('addPoster').value.trim());
     state.items[id] = item;
     commit();
+  });
+  $('exportAi').addEventListener('click', async () => {
+    const text = toAiText(state);
+    download('anime-tier-list.md', new Blob([text], { type: 'text/markdown' }));
+    try {
+      await navigator.clipboard.writeText(text);
+      setStatus('Export pro AI je stažený a zkopírovaný, stačí ho vložit do chatu.');
+    } catch (e) {
+      setStatus('Export pro AI je stažený. Do schránky se zkopírovat nepodařilo.');
+    }
   });
   $('exportJson').addEventListener('click', () => {
     const text = JSON.stringify(toExport(state), null, 2);

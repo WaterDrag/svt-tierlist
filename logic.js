@@ -129,6 +129,30 @@ export function toExport(state) {
   };
 }
 
+// Markdown pro čtení AI: jen tiery a názvy, adresy plakátů by zbytečně braly místo.
+export function toAiText(state, date = new Date()) {
+  const line = text => `- ${String(text).replace(/\s+/g, ' ').trim()}`;
+  const titles = ids => ids.filter(id => state.items[id]).map(id => line(state.items[id].title));
+  const isRating = t => !/left to watch/i.test(t.label);
+  const rows = state.tiers.map(t => ({ t, list: titles(t.items) }));
+  const rated = rows.filter(r => isRating(r.t)).reduce((sum, r) => sum + r.list.length, 0);
+  const tray = titles(unranked(state));
+
+  const out = [
+    '# Můj anime tier list',
+    '',
+    `Exportováno: ${date.toISOString().slice(0, 10)}`,
+    `Ohodnocených anime: ${rated}`,
+    '',
+    'Tiery jsou seřazené od nejlepšího po nejhorší.',
+    '„Left to Watch“ znamená, že anime ještě nemám dokoukané, není to hodnocení.',
+    '„Nezařazené“ jsou oblíbené anime, která jsem ještě neohodnotil.',
+  ];
+  for (const { t, list } of rows) out.push('', `## ${t.label} (${list.length})`, ...list);
+  if (tray.length) out.push('', `## Nezařazené (${tray.length})`, ...tray);
+  return `${out.join('\n')}\n`;
+}
+
 function itemId(item, used) {
   const m = String(item.href || '').match(/\/serial\/([^/?#]+)/i);
   const prefix = /sledujserialy\.io/i.test(item.href || '') ? 'sk-' : '';
