@@ -5,6 +5,7 @@ Seriálový Switcher si bere oblíbené ze Světa seriálů s plakátem a názve
 
 - Nové oblíbené se objeví v přihrádce **Nezařazené**, do tieru je přetáhneš ručně.
 - Hledání podle názvu (bez ohledu na diakritiku, Esc ho vymaže).
+- Filtr podle žánru a tagu. Žánry a tagy se dohledají na AniListu podle názvu a uloží se k anime.
 - Export do JSON a PNG, import z JSON.
 - Export pro AI: Markdown jen s tiery a názvy, stáhne se a zkopíruje do schránky.
 - Zkušební režim bez přihlášení a bez synchronizace: přidej k adrese `?demo`.

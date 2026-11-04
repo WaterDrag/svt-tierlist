@@ -1,6 +1,6 @@
 import {
   createEmpty, normalize, unranked, mergeFavorites, toExport, toAiText, fromImport, newTier, manualItem,
-  matchesQuery,
+  matchesFilter, aniListQuery, aniListInfo, pickMedia, tagIndex,
 } from './logic.js';
 
 const firebaseConfig = {
@@ -51,7 +51,9 @@ function tileEl(id, inTray) {
   const el = document.createElement('div');
   el.className = 'tile';
   el.dataset.id = id;
-  el.title = item.title;
+  el.title = item.al?.id && item.al.title && item.al.title !== item.title
+    ? `${item.title}\nAniList: ${item.al.title}`
+    : item.title;
   if (item.poster) {
     const img = document.createElement('img');
     img.src = item.poster;
@@ -173,6 +175,7 @@ function render() {
     return b;
   }));
 
+  fillFilterOptions();
   applySearch();
 
   document.querySelectorAll('.tiles').forEach(el => {
@@ -192,15 +195,83 @@ function render() {
 // Nevyhovující dlaždice se jen schovají, v DOMu zůstávají, aby přetažení
 // při hledání nerozházelo pořadí ostatních.
 function applySearch() {
-  const query = $('search').value.trim();
+  const filter = { query: $('search').value.trim(), genre: $('genre').value, tag: $('tag').value };
+  const active = !!(filter.query || filter.genre || filter.tag);
   let found = 0;
   document.querySelectorAll('.tile').forEach(el => {
-    const hit = !query || matchesQuery(el.title, query);
+    const hit = !active || matchesFilter(state.items[el.dataset.id], filter);
     el.classList.toggle('miss', !hit);
     if (hit) found++;
   });
-  document.body.classList.toggle('searching', !!query);
-  $('searchCount').textContent = query ? `Nalezeno: ${found}` : '';
+  document.body.classList.toggle('searching', active);
+  $('searchCount').textContent = active ? `Nalezeno: ${found}` : '';
+}
+
+function fillFilterOptions() {
+  const { genres, tags } = tagIndex(state);
+  const fill = (select, list, empty) => {
+    const keep = select.value;
+    const options = [new Option(empty, '')];
+    for (const [name, n] of list) options.push(new Option(`${name} (${n})`, name));
+    select.replaceChildren(...options);
+    select.value = list.some(([name]) => name === keep) ? keep : '';
+  };
+  fill($('genre'), genres, 'Všechny žánry');
+  fill($('tag'), tags, 'Všechny tagy');
+}
+
+// ── Žánry a tagy z AniListu ──────────────────────────────────
+// Hledá se po 10 názvech v jednom dotazu. Page místo Media, protože jediný
+// nenalezený Media shodí celý dotaz. Limit je 30 dotazů za minutu.
+const AL_QUERY = Array.from({ length: 10 }, (_, i) => `a${i}: Page(perPage: 5) { media(search: $s${i}, type: ANIME) { id format synonyms title { romaji english native } genres tags { name rank isMediaSpoiler } } }`);
+let enriching = false;
+const sleep = ms => new Promise(r => setTimeout(r, ms));
+
+async function enrichFromAniList() {
+  if (enriching) return;
+  enriching = true;
+  try {
+    for (;;) {
+      const missing = state ? Object.keys(state.items).filter(id => !state.items[id].al) : [];
+      if (!missing.length) break;
+      const batch = missing.slice(0, 10);
+      const vars = {};
+      batch.forEach((id, i) => { vars[`s${i}`] = aniListQuery(state.items[id].title) || id; });
+      const defs = batch.map((_, i) => `$s${i}: String`).join(', ');
+      const body = { query: `query(${defs}) { ${AL_QUERY.slice(0, batch.length).join(' ')} }`, variables: vars };
+
+      setStatus(`Načítám žánry a tagy z AniListu, zbývá ${missing.length}…`);
+      let res;
+      try {
+        res = await fetch('https://graphql.anilist.co', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+          body: JSON.stringify(body),
+        });
+      } catch (e) {
+        setStatus('AniList teď nejde načíst, žánry se doplní příště.', true);
+        return;
+      }
+      if (res.status === 429) {
+        await sleep((Number(res.headers.get('Retry-After')) || 60) * 1000);
+        continue;
+      }
+      const data = res.ok ? (await res.json()).data : null;
+      if (!data) {
+        setStatus(`AniList odpověděl ${res.status}, žánry se doplní příště.`, true);
+        return;
+      }
+      while (dragging) await sleep(300);
+      batch.forEach((id, i) => {
+        if (state.items[id]) state.items[id].al = aniListInfo(pickMedia(state.items[id].title, data[`a${i}`]?.media));
+      });
+      commit();
+      await sleep(2500);
+    }
+    favStatus();
+  } finally {
+    enriching = false;
+  }
 }
 
 function onDragEnd() {
@@ -255,6 +326,7 @@ function onRemoteState(raw) {
   render();
   applyPendingFavs();
   favStatus();
+  enrichFromAniList();
 }
 
 function applyPendingFavs() {
@@ -267,6 +339,7 @@ function applyPendingFavs() {
   if (merged.changed) commit();
   else if (novejsi) store.save(state).catch(e => console.error(e));
   favStatus();
+  if (merged.changed) enrichFromAniList();
 }
 
 // ── Most z rozšíření ─────────────────────────────────────────
@@ -406,6 +479,8 @@ function bindToolbar() {
     try { localStorage.setItem(SIZE_KEY, e.target.value); } catch (err) {}
   });
   $('search').addEventListener('input', applySearch);
+  $('genre').addEventListener('change', applySearch);
+  $('tag').addEventListener('change', applySearch);
   $('search').addEventListener('keydown', e => {
     if (e.key === 'Escape') { $('search').value = ''; applySearch(); }
   });
@@ -422,6 +497,7 @@ function bindToolbar() {
     const { id, item } = manualItem(state, title, $('addPoster').value.trim());
     state.items[id] = item;
     commit();
+    enrichFromAniList();
   });
   $('exportAi').addEventListener('click', async () => {
     const text = toAiText(state);

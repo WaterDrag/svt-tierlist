@@ -61,6 +61,60 @@ export function matchesQuery(title, query) {
   return words.every(w => hay.includes(w));
 }
 
+// Název pro hledání na AniListu: bez roku a závorek, které tam nejsou.
+export function aniListQuery(title) {
+  return String(title || '').replace(/\(\s*\d{4}\s*\)/g, ' ').replace(/\s+\d{4}\s*$/, '')
+    .replace(/\s+/g, ' ').trim();
+}
+
+// AniList řadí výsledky podle shody hledání, ale speciály a OVA umí předběhnout
+// hlavní seriál, a mají často stejný název mezi synonymy. Vyhrává přesná shoda
+// hlavního názvu, pak synonyma, mezi nimi seriál před filmem a speciálem.
+const FORMAT_SCORE = { TV: 3, MOVIE: 2, TV_SHORT: 1, ONA: 1 };
+const loose = text => fold(text).replace(/[^a-z0-9]+/g, ' ').trim();
+
+export function pickMedia(title, list) {
+  if (!Array.isArray(list) || !list.length) return null;
+  const want = loose(aniListQuery(title));
+  const score = m => {
+    const main = [m.title?.english, m.title?.romaji, m.title?.native].map(loose);
+    const titleScore = main.includes(want) ? 3 : (m.synonyms || []).map(loose).includes(want) ? 2 : 0;
+    return titleScore * 10 + (FORMAT_SCORE[m.format] || 0);
+  };
+  return list.reduce((best, m) => (score(m) > score(best) ? m : best), list[0]);
+}
+
+// Z odpovědi AniListu jen to, co filtr potřebuje. Nenalezené dostane id 0,
+// aby se nehledalo pořád dokola.
+export function aniListInfo(media) {
+  if (!media) return { id: 0 };
+  return {
+    id: media.id,
+    title: media.title?.english || media.title?.romaji || '',
+    genres: media.genres || [],
+    tags: (media.tags || []).filter(t => t.rank >= 60 && !t.isMediaSpoiler).slice(0, 10).map(t => t.name),
+  };
+}
+
+// Žánry a tagy seřazené podle počtu anime, ve kterých jsou.
+export function tagIndex(state) {
+  const count = (key) => {
+    const map = new Map();
+    for (const item of Object.values(state.items)) {
+      for (const name of item.al?.[key] || []) map.set(name, (map.get(name) || 0) + 1);
+    }
+    return [...map].sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]));
+  };
+  return { genres: count('genres'), tags: count('tags') };
+}
+
+export function matchesFilter(item, { query = '', genre = '', tag = '' } = {}) {
+  if (!item) return false;
+  if (genre && !(item.al?.genres || []).includes(genre)) return false;
+  if (tag && !(item.al?.tags || []).includes(tag)) return false;
+  return matchesQuery(item.title, query);
+}
+
 export function placedIds(state) {
   return new Set(state.tiers.flatMap(t => t.items));
 }

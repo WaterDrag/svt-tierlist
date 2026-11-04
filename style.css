@@ -57,9 +57,10 @@ main { max-width: 1500px; margin: 0 auto; padding: 14px 16px 48px; }
 .toolbar { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 14px; }
 .spacer { flex: 1; }
 
-.search { display: flex; align-items: center; gap: 8px; flex: 1 1 240px; }
-.search input {
-  flex: 1;
+.search { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; flex: 1 1 100%; }
+.search input { flex: 1 1 200px; }
+.search select { flex: 0 1 180px; max-width: 100%; }
+.search input, .search select {
   min-width: 0;
   padding: 8px 10px;
   background: var(--panel);
