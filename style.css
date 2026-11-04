@@ -57,6 +57,21 @@ main { max-width: 1500px; margin: 0 auto; padding: 14px 16px 48px; }
 .toolbar { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 14px; }
 .spacer { flex: 1; }
 
+.search { display: flex; align-items: center; gap: 8px; flex: 1 1 240px; }
+.search input {
+  flex: 1;
+  min-width: 0;
+  padding: 8px 10px;
+  background: var(--panel);
+  color: var(--text);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  font: inherit;
+}
+.search .count { font-size: 13px; white-space: nowrap; }
+.tile.miss { display: none; }
+.searching .tile:not(.miss) { outline: 2px solid var(--accent); outline-offset: -2px; }
+
 .tiers { display: flex; flex-direction: column; gap: 6px; }
 .tier {
   display: grid;

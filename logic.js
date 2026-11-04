@@ -52,6 +52,15 @@ export function slugify(text) {
     .toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '');
 }
 
+const fold = text => String(text || '').normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase();
+
+// Každé slovo hledání musí být někde v názvu, bez ohledu na diakritiku a pořadí.
+export function matchesQuery(title, query) {
+  const words = fold(query).split(/\s+/).filter(Boolean);
+  const hay = fold(title);
+  return words.every(w => hay.includes(w));
+}
+
 export function placedIds(state) {
   return new Set(state.tiers.flatMap(t => t.items));
 }

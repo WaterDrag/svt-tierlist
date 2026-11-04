@@ -1,5 +1,6 @@
 import {
   createEmpty, normalize, unranked, mergeFavorites, toExport, toAiText, fromImport, newTier, manualItem,
+  matchesQuery,
 } from './logic.js';
 
 const firebaseConfig = {
@@ -172,6 +173,8 @@ function render() {
     return b;
   }));
 
+  applySearch();
+
   document.querySelectorAll('.tiles').forEach(el => {
     sortables.push(new Sortable(el, {
       group: 'tier',
@@ -184,6 +187,20 @@ function render() {
       onEnd: onDragEnd,
     }));
   });
+}
+
+// Nevyhovující dlaždice se jen schovají, v DOMu zůstávají, aby přetažení
+// při hledání nerozházelo pořadí ostatních.
+function applySearch() {
+  const query = $('search').value.trim();
+  let found = 0;
+  document.querySelectorAll('.tile').forEach(el => {
+    const hit = !query || matchesQuery(el.title, query);
+    el.classList.toggle('miss', !hit);
+    if (hit) found++;
+  });
+  document.body.classList.toggle('searching', !!query);
+  $('searchCount').textContent = query ? `Nalezeno: ${found}` : '';
 }
 
 function onDragEnd() {
@@ -387,6 +404,10 @@ function bindToolbar() {
   $('tileSize').addEventListener('input', e => {
     setTileSize(Number(e.target.value));
     try { localStorage.setItem(SIZE_KEY, e.target.value); } catch (err) {}
+  });
+  $('search').addEventListener('input', applySearch);
+  $('search').addEventListener('keydown', e => {
+    if (e.key === 'Escape') { $('search').value = ''; applySearch(); }
   });
   $('editTiers').addEventListener('click', () => {
     const on = $('tiers').classList.toggle('editing');
